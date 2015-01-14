@@ -31,7 +31,7 @@ bower_components
 .lock-wscript
 
 # Build destination
-dist
+# dist
 
 # OS X junk
 .DS_Store

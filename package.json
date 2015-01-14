@@ -2,7 +2,7 @@
   "name": "promise-conveyor",
   "version": "1.0.0",
   "description": "Pipe data down the promise chain.",
-  "main": "conveyor.js",
+  "main": "dist/conveyor.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

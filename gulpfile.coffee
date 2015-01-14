@@ -3,6 +3,6 @@ coffee = require 'gulp-coffee'
 
 gulp.task 'default', ->
 
-  gulp.src ['*.coffee']
+  gulp.src ['src/*.coffee'], base: 'src'
     .pipe coffee()
-    .pipe gulp.dest('./')
+    .pipe gulp.dest('./dist')

@@ -55,9 +55,9 @@ class pcon.Conveyor
     # NULL: return the entire @data
     if _.isNull(path) then return [@data]
     # STRING: return the deep property of the @data
-    if _.isString(path) then return [vetluga.prop(@data, path)]
+    if _.isString(path) then return [prop(@data, path)]
     # ARRAY: return the array of specified properties
-    if _.isArray(path) then return _.map path, (i) => vetluga.prop(@data, i)
+    if _.isArray(path) then return _.map path, (i) => prop(@data, i)
     # We do not know what this is, so we run scream and panic!
     throw new Error('Pipeline.extract: Unexpected path type: ' + typeof path)
 
@@ -71,14 +71,14 @@ class pcon.Conveyor
     # STRING: deep property access
     if _.isString(path)
       @lastOutput = path
-      vetluga.prop(@data, path, value)
+      prop(@data, path, value)
       return @
     # UNDEFINED: there are two possibilities here...
     if _.isUndefined(path)
       # STRING INPUT: output right there
       if _.isString(@lastInput)
         @lastOutput = @lastInput
-        vetluga.prop(@data, @lastInput, value)
+        prop(@data, @lastInput, value)
       # NO STRING INPUT: ignore this one
       else
         @lastOutput = null
