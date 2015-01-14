@@ -15,3 +15,5 @@ describe 'pconv.Conveyor class', ->
     it 'should not throw error when data property is null or undefined', ->
       conv0 = new pconv.Conveyor(null)
       conv1 = new pconv.Conveyor(undefined)
+
+  describe 'running plugins'
