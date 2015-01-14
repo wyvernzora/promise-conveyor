@@ -55,9 +55,9 @@ class pcon.Conveyor
     # NULL: return the entire @data
     if _.isNull(path) then return [@data]
     # STRING: return the deep property of the @data
-    if _.isString(path) then return [prop(@data, path)]
+    if _.isString(path) then return [pcon.util.prop(@data, path)]
     # ARRAY: return the array of specified properties
-    if _.isArray(path) then return _.map path, (i) => prop(@data, i)
+    if _.isArray(path) then return _.map path, (i) => pcon.util.prop(@data, i)
     # We do not know what this is, so we run scream and panic!
     throw new Error('Pipeline.extract: Unexpected path type: ' + typeof path)
 
@@ -71,14 +71,14 @@ class pcon.Conveyor
     # STRING: deep property access
     if _.isString(path)
       @lastOutput = path
-      prop(@data, path, value)
+      pcon.util.prop(@data, path, value)
       return @
     # UNDEFINED: there are two possibilities here...
     if _.isUndefined(path)
       # STRING INPUT: output right there
       if _.isString(@lastInput)
         @lastOutput = @lastInput
-        prop(@data, @lastInput, value)
+        pcon.util.prop(@data, @lastInput, value)
       # NO STRING INPUT: ignore this one
       else
         @lastOutput = null
@@ -111,33 +111,34 @@ class pcon.Error extends Error
 
   constructor: (@pluginName, @message, @details) ->
     # Append details to message if it has custom toString() function
-    if @details.toString isnt Object.prototype.toString
+    if @details and @details.toString isnt Object.prototype.toString
       @message += ' (' + @details.toString() + ')'
     super(@message)
 
   toString: ->
-    return 'Plugin [#{@pluginName}] panic: #{@message}'
+    return "Plugin [#{@pluginName}] panic: #{@message}"
 
 # --------------------------------------------------------------------------- #
 # Utility functions and such.                                                 #
 # --------------------------------------------------------------------------- #
-prop = (obj, prop, value) ->
-  # Make sure that object and prop are defiend
-  if (not prop) or (not obj) then return
-  # Convert to dot notation and split property path
-  list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.')
-  # Find the specified property
-  while list.length > 1
-    n = list.shift()
-    # Handle undefined properties
-    if _.isUndefined obj[n]
-      # ..in case of retrieval, abort
-      if _.isUndefined(value) then return
-      # ..in case of assignment, create empty object
-      else obj[n] = { }
-    obj = obj[n]
-  # Perform the operation
-  if _.isUndefined value
-    return if not obj then null else obj[list[0]]
-  else
-    obj[list[0]] = value
+pcon.util =
+  prop: (obj, prop, value) ->
+    # Make sure that object and prop are defiend
+    if (not prop) or (not obj) then return
+    # Convert to dot notation and split property path
+    list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.')
+    # Find the specified property
+    while list.length > 1
+      n = list.shift()
+      # Handle undefined properties
+      if _.isUndefined obj[n]
+        # ..in case of retrieval, abort
+        if _.isUndefined(value) then return
+        # ..in case of assignment, create empty object
+        else obj[n] = { }
+      obj = obj[n]
+    # Perform the operation
+    if _.isUndefined value
+      return if not obj then null else obj[list[0]]
+    else
+      obj[list[0]] = value

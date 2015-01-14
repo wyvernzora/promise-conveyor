@@ -1,5 +1,5 @@
 (function() {
-  var Promise, pcon, prop, _,
+  var Promise, pcon, _,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -49,12 +49,12 @@
         return [this.data];
       }
       if (_.isString(path)) {
-        return [prop(this.data, path)];
+        return [pcon.util.prop(this.data, path)];
       }
       if (_.isArray(path)) {
         return _.map(path, (function(_this) {
           return function(i) {
-            return prop(_this.data, i);
+            return pcon.util.prop(_this.data, i);
           };
         })(this));
       }
@@ -69,13 +69,13 @@
       }
       if (_.isString(path)) {
         this.lastOutput = path;
-        prop(this.data, path, value);
+        pcon.util.prop(this.data, path, value);
         return this;
       }
       if (_.isUndefined(path)) {
         if (_.isString(this.lastInput)) {
           this.lastOutput = this.lastInput;
-          prop(this.data, this.lastInput, value);
+          pcon.util.prop(this.data, this.lastInput, value);
         } else {
           this.lastOutput = null;
         }
@@ -116,45 +116,47 @@
       this.pluginName = pluginName;
       this.message = message;
       this.details = details;
-      if (this.details.toString !== Object.prototype.toString) {
+      if (this.details && this.details.toString !== Object.prototype.toString) {
         this.message += ' (' + this.details.toString() + ')';
       }
       Error.__super__.constructor.call(this, this.message);
     }
 
     Error.prototype.toString = function() {
-      return 'Plugin [#{@pluginName}] panic: #{@message}';
+      return "Plugin [" + this.pluginName + "] panic: " + this.message;
     };
 
     return Error;
 
   })(Error);
 
-  prop = function(obj, prop, value) {
-    var list, n;
-    if ((!prop) || (!obj)) {
-      return;
-    }
-    list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.');
-    while (list.length > 1) {
-      n = list.shift();
-      if (_.isUndefined(obj[n])) {
-        if (_.isUndefined(value)) {
-          return;
-        } else {
-          obj[n] = {};
+  pcon.util = {
+    prop: function(obj, prop, value) {
+      var list, n;
+      if ((!prop) || (!obj)) {
+        return;
+      }
+      list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.');
+      while (list.length > 1) {
+        n = list.shift();
+        if (_.isUndefined(obj[n])) {
+          if (_.isUndefined(value)) {
+            return;
+          } else {
+            obj[n] = {};
+          }
         }
+        obj = obj[n];
       }
-      obj = obj[n];
-    }
-    if (_.isUndefined(value)) {
-      if (!obj) {
-        return null;
+      if (_.isUndefined(value)) {
+        if (!obj) {
+          return null;
+        } else {
+          return obj[list[0]];
+        }
       } else {
-        return obj[list[0]];
+        return obj[list[0]] = value;
       }
-    } else {
-      return obj[list[0]] = value;
     }
   };
 
