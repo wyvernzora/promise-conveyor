@@ -15,7 +15,7 @@
       }
       return function(pipeline) {
         var args, context, result;
-        pipeline.currentPlugin = plugin;
+        pipeline.current = name;
         args = pipeline.extract(config.input);
         context = _.extend({}, {
           config: config,

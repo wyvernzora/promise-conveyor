@@ -19,7 +19,7 @@ pcon = module.exports = (name, fn) ->
     # Callback wrapper
     return (pipeline) ->
       # Update current pipeline position
-      pipeline.currentPlugin = plugin
+      pipeline.current = name
       # Extract arguments
       args = pipeline.extract(config.input)
       # Create the context object
