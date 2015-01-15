@@ -69,27 +69,51 @@ class Conveyor
     if _.isFunction(arguments[0])
       config = { }
       fn = arguments[0]
-    else
+    else if _.isObject(arguments[0]) and _.isFunction(arguments[1])
       config = arguments[0]
       fn = arguments[1]
+    else
+      throw new Error('Unexpected arguments! You need an optional config object and a function.')
     # Create the wrapper function for the fn
-    wrapper = (pipeline) ->
+    wrapper = (conveyor) ->
       # Extract arguments
-      args = pipeline.extract(config.input)
+      args = conveyor.extract(config.input)
       # Create the context object
-      context = _.extend({ }, config:config, conveyor:pipeline)
+      context = _.extend({ }, config:config, conveyor:conveyor)
       # Call the callback and save the result
       result = fn.apply(context, args)
       # result may be a promise, so make sure to resolve it
       return Promise.resolve(result)
-        .then (result) -> pipeline.insert(config.output, result)
+        .then (result) -> conveyor.insert(config.output, result)
     # Append to the promise chain
     @promise = @promise.then(wrapper)
     return @
 
   # Wrapper for handling errors
   catch: ->
-    @promise = @promise.catch.apply(@promise, arguments)
+    conveyor = @
+    # No config if the first argument is a function
+    if _.isFunction(arguments[0])
+      config = { }
+      fn = arguments[0]
+    else if _.isObject(arguments[0]) and _.isFunction(arguments[1])
+      config = arguments[0]
+      fn = arguments[1]
+    else
+      throw new Error('Unexpected arguments! You need an optional config object and a function.')
+    # Create the wrapper function for the fn
+    wrapper = (error) ->
+      # Extract arguments
+      errType = config.type ? null
+      # Create the context object
+      context = _.extend({ }, config:config, conveyor:conveyor)
+      # Call the callback, and we don't expect a result
+      fn.call(context, error)
+    # Append to the error handlers
+    if _.isFunction(config.type)
+      @promise = @promise.catch.call(@promise, config.type, wrapper)
+    else
+      @promise = @promise.catch.call(@promise, wrapper)
     return @
 
   # @wrapper for throwing unhandled exceptions
@@ -119,6 +143,8 @@ class Conveyor
         return if not obj then null else obj[list[0]]
       else
         obj[list[0]] = value
+
+
 
 # --------------------------------------------------------------------------- #
 # Error class.                                                                #

@@ -69,20 +69,22 @@
       if (_.isFunction(arguments[0])) {
         config = {};
         fn = arguments[0];
-      } else {
+      } else if (_.isObject(arguments[0]) && _.isFunction(arguments[1])) {
         config = arguments[0];
         fn = arguments[1];
+      } else {
+        throw new Error('Unexpected arguments! You need an optional config object and a function.');
       }
-      wrapper = function(pipeline) {
+      wrapper = function(conveyor) {
         var args, context, result;
-        args = pipeline.extract(config.input);
+        args = conveyor.extract(config.input);
         context = _.extend({}, {
           config: config,
-          conveyor: pipeline
+          conveyor: conveyor
         });
         result = fn.apply(context, args);
         return Promise.resolve(result).then(function(result) {
-          return pipeline.insert(config.output, result);
+          return conveyor.insert(config.output, result);
         });
       };
       this.promise = this.promise.then(wrapper);
@@ -90,7 +92,31 @@
     };
 
     Conveyor.prototype["catch"] = function() {
-      this.promise = this.promise["catch"].apply(this.promise, arguments);
+      var config, conveyor, fn, wrapper;
+      conveyor = this;
+      if (_.isFunction(arguments[0])) {
+        config = {};
+        fn = arguments[0];
+      } else if (_.isObject(arguments[0]) && _.isFunction(arguments[1])) {
+        config = arguments[0];
+        fn = arguments[1];
+      } else {
+        throw new Error('Unexpected arguments! You need an optional config object and a function.');
+      }
+      wrapper = function(error) {
+        var context, errType, _ref;
+        errType = (_ref = config.type) != null ? _ref : null;
+        context = _.extend({}, {
+          config: config,
+          conveyor: conveyor
+        });
+        return fn.call(context, error);
+      };
+      if (_.isFunction(config.type)) {
+        this.promise = this.promise["catch"].call(this.promise, config.type, wrapper);
+      } else {
+        this.promise = this.promise["catch"].call(this.promise, wrapper);
+      }
       return this;
     };
 
