@@ -6,38 +6,10 @@
 _       = require('underscore')
 Promise = require('bluebird')
 
-
-
-# --------------------------------------------------------------------------- #
-# Plugin factory, ahem, factory.                                              #
-# --------------------------------------------------------------------------- #
-pcon = module.exports = (name, fn) ->
-  # Callback factory
-  plugin = (config) ->
-    # Create configuration object
-    config ?= { }
-    # Callback wrapper
-    return (pipeline) ->
-      # Update current pipeline position
-      pipeline.current = name
-      # Extract arguments
-      args = pipeline.extract(config.input)
-      # Create the context object
-      context = _.extend({ }, config:config, pipeline:pipeline)
-      # Call the callback and save the result
-      result = fn.apply(context, args)
-      # result may be a promise, so make sure to resolve it
-      return Promise.resolve(result)
-        .then (result) -> pipeline.insert(config.output, result)
-
-  # Attach plugin metadata here
-  plugin.name = name
-  return plugin
-
 # --------------------------------------------------------------------------- #
 # Conveyor object, start of the conveyor line.                                #
 # --------------------------------------------------------------------------- #
-class pcon.Conveyor
+class Conveyor
 
   constructor: (data) ->
     @data = _.extend {}, data
@@ -55,9 +27,9 @@ class pcon.Conveyor
     # NULL: return the entire @data
     if _.isNull(path) then return [@data]
     # STRING: return the deep property of the @data
-    if _.isString(path) then return [pcon.util.prop(@data, path)]
+    if _.isString(path) then return [Conveyor.util.prop(@data, path)]
     # ARRAY: return the array of specified properties
-    if _.isArray(path) then return _.map path, (i) => pcon.util.prop(@data, i)
+    if _.isArray(path) then return _.map path, (i) => Conveyor.util.prop(@data, i)
     # We do not know what this is, so we run scream and panic!
     throw new Error('Pipeline.extract: Unexpected path type: ' + typeof path)
 
@@ -71,14 +43,14 @@ class pcon.Conveyor
     # STRING: deep property access
     if _.isString(path)
       @lastOutput = path
-      pcon.util.prop(@data, path, value)
+      Conveyor.util.prop(@data, path, value)
       return @
     # UNDEFINED: there are two possibilities here...
     if _.isUndefined(path)
       # STRING INPUT: output right there
       if _.isString(@lastInput)
         @lastOutput = @lastInput
-        pcon.util.prop(@data, @lastInput, value)
+        Conveyor.util.prop(@data, @lastInput, value)
       # NO STRING INPUT: ignore this one
       else
         @lastOutput = null
@@ -87,16 +59,37 @@ class pcon.Conveyor
     throw new Error('Pipeline.insert: Unexpected path type: ' + typeof path)
 
   # Something went wrong! We shall scream, run, and panic!
-  panic: (message, status = 500, details) ->
+  panic: (message, details) ->
+    throw new Conveyor.Error(message, details)
 
   # Wrapper for chaining promises
-  then: (plugin) ->
-    @promise = @promise.then(plugin)
+  # then([config], fn)
+  then: ->
+    # No config if the first argument is a function
+    if _.isFunction(arguments[0])
+      config = { }
+      fn = arguments[0]
+    else
+      config = arguments[0]
+      fn = arguments[1]
+    # Create the wrapper function for the fn
+    wrapper = (pipeline) ->
+      # Extract arguments
+      args = pipeline.extract(config.input)
+      # Create the context object
+      context = _.extend({ }, config:config, conveyor:pipeline)
+      # Call the callback and save the result
+      result = fn.apply(context, args)
+      # result may be a promise, so make sure to resolve it
+      return Promise.resolve(result)
+        .then (result) -> pipeline.insert(config.output, result)
+    # Append to the promise chain
+    @promise = @promise.then(wrapper)
     return @
 
   # Wrapper for handling errors
-  catch: (handler) ->
-    @promise = @promise.catch(handler)
+  catch: ->
+    @promise = @promise.catch.apply(@promise, arguments)
     return @
 
   # @wrapper for throwing unhandled exceptions
@@ -104,41 +97,44 @@ class pcon.Conveyor
     @promise.done()
     return @
 
+  # STATIC: utility functions
+  @util =
+    prop: (obj, prop, value) ->
+      # Make sure that object and prop are defiend
+      if (not prop) or (not obj) then return
+      # Convert to dot notation and split property path
+      list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.')
+      # Find the specified property
+      while list.length > 1
+        n = list.shift()
+        # Handle undefined properties
+        if _.isUndefined obj[n]
+          # ..in case of retrieval, abort
+          if _.isUndefined(value) then return
+          # ..in case of assignment, create empty object
+          else obj[n] = { }
+        obj = obj[n]
+      # Perform the operation
+      if _.isUndefined value
+        return if not obj then null else obj[list[0]]
+      else
+        obj[list[0]] = value
+
 # --------------------------------------------------------------------------- #
 # Error class.                                                                #
 # --------------------------------------------------------------------------- #
-class pcon.Error extends Error
+class Conveyor.Error extends Error
 
-  constructor: (@pluginName, @message, @details) ->
+  constructor: (@message, @details) ->
     # Append details to message if it has custom toString() function
     if @details and @details.toString isnt Object.prototype.toString
       @message += ' (' + @details.toString() + ')'
     super(@message)
 
   toString: ->
-    return "Plugin [#{@pluginName}] panic: #{@message}"
+    return @message
 
 # --------------------------------------------------------------------------- #
-# Utility functions and such.                                                 #
+# Export the Conveyor class.                                                  #
 # --------------------------------------------------------------------------- #
-pcon.util =
-  prop: (obj, prop, value) ->
-    # Make sure that object and prop are defiend
-    if (not prop) or (not obj) then return
-    # Convert to dot notation and split property path
-    list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.')
-    # Find the specified property
-    while list.length > 1
-      n = list.shift()
-      # Handle undefined properties
-      if _.isUndefined obj[n]
-        # ..in case of retrieval, abort
-        if _.isUndefined(value) then return
-        # ..in case of assignment, create empty object
-        else obj[n] = { }
-      obj = obj[n]
-    # Perform the operation
-    if _.isUndefined value
-      return if not obj then null else obj[list[0]]
-    else
-      obj[list[0]] = value
+module.exports = Conveyor

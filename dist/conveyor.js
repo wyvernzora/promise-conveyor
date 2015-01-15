@@ -1,5 +1,5 @@
 (function() {
-  var Promise, pcon, _,
+  var Conveyor, Promise, _,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -7,31 +7,7 @@
 
   Promise = require('bluebird');
 
-  pcon = module.exports = function(name, fn) {
-    var plugin;
-    plugin = function(config) {
-      if (config == null) {
-        config = {};
-      }
-      return function(pipeline) {
-        var args, context, result;
-        pipeline.current = name;
-        args = pipeline.extract(config.input);
-        context = _.extend({}, {
-          config: config,
-          pipeline: pipeline
-        });
-        result = fn.apply(context, args);
-        return Promise.resolve(result).then(function(result) {
-          return pipeline.insert(config.output, result);
-        });
-      };
-    };
-    plugin.name = name;
-    return plugin;
-  };
-
-  pcon.Conveyor = (function() {
+  Conveyor = (function() {
     function Conveyor(data) {
       this.data = _.extend({}, data);
       this.lastInput = null;
@@ -49,12 +25,12 @@
         return [this.data];
       }
       if (_.isString(path)) {
-        return [pcon.util.prop(this.data, path)];
+        return [Conveyor.util.prop(this.data, path)];
       }
       if (_.isArray(path)) {
         return _.map(path, (function(_this) {
           return function(i) {
-            return pcon.util.prop(_this.data, i);
+            return Conveyor.util.prop(_this.data, i);
           };
         })(this));
       }
@@ -69,13 +45,13 @@
       }
       if (_.isString(path)) {
         this.lastOutput = path;
-        pcon.util.prop(this.data, path, value);
+        Conveyor.util.prop(this.data, path, value);
         return this;
       }
       if (_.isUndefined(path)) {
         if (_.isString(this.lastInput)) {
           this.lastOutput = this.lastInput;
-          pcon.util.prop(this.data, this.lastInput, value);
+          Conveyor.util.prop(this.data, this.lastInput, value);
         } else {
           this.lastOutput = null;
         }
@@ -84,19 +60,37 @@
       throw new Error('Pipeline.insert: Unexpected path type: ' + typeof path);
     };
 
-    Conveyor.prototype.panic = function(message, status, details) {
-      if (status == null) {
-        status = 500;
-      }
+    Conveyor.prototype.panic = function(message, details) {
+      throw new Conveyor.Error(message, details);
     };
 
-    Conveyor.prototype.then = function(plugin) {
-      this.promise = this.promise.then(plugin);
+    Conveyor.prototype.then = function() {
+      var config, fn, wrapper;
+      if (_.isFunction(arguments[0])) {
+        config = {};
+        fn = arguments[0];
+      } else {
+        config = arguments[0];
+        fn = arguments[1];
+      }
+      wrapper = function(pipeline) {
+        var args, context, result;
+        args = pipeline.extract(config.input);
+        context = _.extend({}, {
+          config: config,
+          conveyor: pipeline
+        });
+        result = fn.apply(context, args);
+        return Promise.resolve(result).then(function(result) {
+          return pipeline.insert(config.output, result);
+        });
+      };
+      this.promise = this.promise.then(wrapper);
       return this;
     };
 
-    Conveyor.prototype["catch"] = function(handler) {
-      this.promise = this.promise["catch"](handler);
+    Conveyor.prototype["catch"] = function() {
+      this.promise = this.promise["catch"].apply(this.promise, arguments);
       return this;
     };
 
@@ -105,15 +99,44 @@
       return this;
     };
 
+    Conveyor.util = {
+      prop: function(obj, prop, value) {
+        var list, n;
+        if ((!prop) || (!obj)) {
+          return;
+        }
+        list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.');
+        while (list.length > 1) {
+          n = list.shift();
+          if (_.isUndefined(obj[n])) {
+            if (_.isUndefined(value)) {
+              return;
+            } else {
+              obj[n] = {};
+            }
+          }
+          obj = obj[n];
+        }
+        if (_.isUndefined(value)) {
+          if (!obj) {
+            return null;
+          } else {
+            return obj[list[0]];
+          }
+        } else {
+          return obj[list[0]] = value;
+        }
+      }
+    };
+
     return Conveyor;
 
   })();
 
-  pcon.Error = (function(_super) {
+  Conveyor.Error = (function(_super) {
     __extends(Error, _super);
 
-    function Error(pluginName, message, details) {
-      this.pluginName = pluginName;
+    function Error(message, details) {
       this.message = message;
       this.details = details;
       if (this.details && this.details.toString !== Object.prototype.toString) {
@@ -123,41 +146,13 @@
     }
 
     Error.prototype.toString = function() {
-      return "Plugin [" + this.pluginName + "] panic: " + this.message;
+      return this.message;
     };
 
     return Error;
 
   })(Error);
 
-  pcon.util = {
-    prop: function(obj, prop, value) {
-      var list, n;
-      if ((!prop) || (!obj)) {
-        return;
-      }
-      list = prop.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split('.');
-      while (list.length > 1) {
-        n = list.shift();
-        if (_.isUndefined(obj[n])) {
-          if (_.isUndefined(value)) {
-            return;
-          } else {
-            obj[n] = {};
-          }
-        }
-        obj = obj[n];
-      }
-      if (_.isUndefined(value)) {
-        if (!obj) {
-          return null;
-        } else {
-          return obj[list[0]];
-        }
-      } else {
-        return obj[list[0]] = value;
-      }
-    }
-  };
+  module.exports = Conveyor;
 
 }).call(this);
