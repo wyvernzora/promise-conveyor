@@ -65,6 +65,8 @@ class Conveyor
   # Wrapper for chaining promises
   # then([config], fn)
   then: ->
+    # Backup current this value
+    self = @
     # No config if the first argument is a function
     if _.isFunction(arguments[0])
       config = { }
@@ -76,6 +78,8 @@ class Conveyor
       throw new Error('Unexpected arguments! You need an optional config object and a function.')
     # Create the wrapper function for the fn
     wrapper = (conveyor) ->
+      # Fall back to @ if conveyor is null/undefined
+      if not conveyor then conveyor = self
       # Extract arguments
       args = conveyor.extract(config.input)
       # Create the context object

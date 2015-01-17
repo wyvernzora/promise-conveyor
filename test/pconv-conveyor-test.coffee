@@ -66,6 +66,18 @@ describe 'Conveyor class', ->
             expect(error).not.to.have.property('details')
             done()
 
+    it 'should correctly make config accessible from within error handler', (done) ->
+      result = []
+      new Conveyor()
+        .then -> result.push 0
+        .then -> result.push 1
+        .then -> @conveyor.panic('Test Panic!')
+        .then -> result.push 3
+        .then -> done(new Error ' Did not terminate on error!')
+        .catch prop: 'value', (error) ->
+          expect(@config).to.have.property('prop').that.equals('value')
+          done()
+
   describe 'data piping', ->
 
     it 'should correctly access input data by config', (done) ->

@@ -65,7 +65,8 @@
     };
 
     Conveyor.prototype.then = function() {
-      var config, fn, wrapper;
+      var config, fn, self, wrapper;
+      self = this;
       if (_.isFunction(arguments[0])) {
         config = {};
         fn = arguments[0];
@@ -77,6 +78,9 @@
       }
       wrapper = function(conveyor) {
         var args, context, result;
+        if (!conveyor) {
+          conveyor = self;
+        }
         args = conveyor.extract(config.input);
         context = _.extend({}, {
           config: config,

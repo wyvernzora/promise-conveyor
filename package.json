@@ -1,6 +1,6 @@
 {
   "name": "promise-conveyor",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Pipe data down the promise chain.",
   "main": "dist/conveyor.js",
   "scripts": {
